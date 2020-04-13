@@ -1,0 +1,77 @@
+{
+    "common": {
+        "name": "mini-alarm",
+        "version": "0.0.1",
+        "news": {
+            "0.0.1": {
+                "en": "initial release",
+                "de": "Erstveröffentlichung",
+                "ru": "Начальная версия",
+                "pt": "lançamento inicial",
+                "nl": "Eerste uitgave",
+                "fr": "Première version",
+                "it": "Versione iniziale",
+                "es": "Versión inicial",
+                "pl": "Pierwsze wydanie",
+                "zh-cn": "首次出版"
+            }
+        },
+        "title": "Mini Alarm",
+        "titleLang": {
+            "en": "Mini Alarm",
+            "de": "Mini Alarm",
+            "ru": "Мини сигнализация",
+            "pt": "Mini Alarm",
+            "nl": "Mini alarm",
+            "fr": "Mini alarme",
+            "it": "Mini allarme",
+            "es": "Mini alarma",
+            "pl": "Mini Alarm",
+            "zh-cn": "迷你闹钟"
+        },
+        "desc": {
+            "en": "very simple alarm system",
+            "de": "sehr einfaches Alarmsystem",
+            "ru": "очень простая сигнализация",
+            "pt": "sistema de alarme muito simples",
+            "nl": "heel eenvoudig alarmsysteem",
+            "fr": "système d'alarme très simple",
+            "it": "sistema di allarme molto semplice",
+            "es": "sistema de alarma muy simple",
+            "pl": "bardzo prosty system alarmowy",
+            "zh-cn": "非常简单的报警系统"
+        },
+        "authors": [
+            "rg-engineering <info@rg-engineering.eu>"
+        ],
+        "keywords": [
+            "alarm"
+        ],
+        "license": "MIT",
+        "platform": "Javascript/Node.js",
+        "main": "main.js",
+        "icon": "mini-alarm.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/rg-engineering/ioBroker.mini-alarm/master/admin/mini-alarm.png",
+        "readme": "https://github.com/rg-engineering/ioBroker.mini-alarm/blob/master/README.md",
+        "loglevel": "info",
+        "mode": "daemon",
+        "type": "alarm",
+        "compact": true,
+        "connectionType": "local",
+        "dataSource": "push",
+        "materialize": true,
+        "dependencies": [
+          {
+            "js-controller": ">=1.4.2"
+            
+          }
+        ]
+    },
+    "native": {
+        "option1": true,
+        "option2": "42"
+    },
+    "objects": [],
+    "instanceObjects": []
+}
