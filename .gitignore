@@ -1,15 +1,14 @@
-.git
 .idea
-*.code-workspace
 node_modules
-nbproject
+/bin/
 
-# npm package files
-iobroker.*.tgz
-
-Thumbs.db
-
-# i18n intermediate files
-admin/i18n/flat.txt
-admin/i18n/*/flat.txt
-/.vscode/
+/*.njsproj
+/todo.txt
+/typings/
+/todo1.txt
+/.project
+/.settings/
+/log.txt
+/main_old.js
+/obj/Debug/
+*.orig

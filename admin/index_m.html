@@ -4,20 +4,50 @@
 
     <!-- Load ioBroker scripts and styles-->
     <link rel="stylesheet" type="text/css" href="../../css/adapter.css" />
+    <link rel="stylesheet" type="text/css" href="../../lib/css/fancytree/ui.fancytree.min.css" />
     <link rel="stylesheet" type="text/css" href="../../lib/css/materialize.css">
 
     <script type="text/javascript" src="../../lib/js/jquery-3.2.1.min.js"></script>
     <script type="text/javascript" src="../../socket.io/socket.io.js"></script>
 
-    <script type="text/javascript" src="../../js/translate.js"></script>
     <script type="text/javascript" src="../../lib/js/materialize.js"></script>
+    <script type="text/javascript" src="../../lib/js/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="../../lib/js/jquery.fancytree-all.min.js"></script>
+
+    <script type="text/javascript" src="../../js/translate.js"></script>
+    <script type="text/javascript" src="../../lib/js/selectID.js"></script>
     <script type="text/javascript" src="../../js/adapter-settings.js"></script>
+
 
     <!-- Load our own files -->
     <link rel="stylesheet" type="text/css" href="style.css" />
     <script type="text/javascript" src="words.js"></script>
 
+    <style>
+
+
+        #dialog-select-member {
+            max-height: 95% !important;
+            max-width: 85% !important;
+            width: 80% !important;
+            height: 90% !important;
+            overflow: visible !important;
+            top: 10px !important;
+        }
+
+        redlabel {
+            color: red;
+        }
+    </style>
+
+
     <script type="text/javascript">
+
+        function showHideSettings() {
+        }
+
+
+
         // This will be called by the admin adapter when the settings page loads
         function load(settings, onChange) {
             // example: select elements with id=key and class=value and insert value
@@ -38,9 +68,16 @@
                         ;
                 }
             });
+
+            myOnChange = onChange;
             onChange(false);
+            showHideSettings();
             // reinitialize all the Materialize labels on the page if you are dynamically adding inputs:
             if (M) M.updateTextFields();
+
+            values2table('sensors', settings.sensors, OnChange, tableSensorsOnReady);
+            values2table('actors', settings.actors, OnChange, tableActorsOnReady);
+
         }
 
         // This will be called by the admin adapter when the user presses the save button
@@ -55,7 +92,151 @@
                     obj[$this.attr('id')] = $this.val();
                 }
             });
+
+            obj.sensors = table2values('sensors');
+            obj.actors = table2values('actors');
+
             callback(obj);
+        }
+
+
+        var myOnChange = null;
+        function OnChange() {
+            //do nothing
+            console.log('on change called');
+
+            if (myOnChange != null) {
+                myOnChange();
+            }
+        }
+
+
+        function tableSensorsOnReady() {
+
+            console.log('tableSensorsOnReady');
+
+            $('#sensors .table-values-div .table-values .values-buttons[data-command="edit"]').on('click', function () {
+                let id = $(this).data('index');
+                initSelectId(function (sid) {
+                    sid.selectId('show', $('#sensors .values-input[data-name="name"][data-index="' + id + '"]').val(), function (newId) {
+                        if (newId) {
+                            $('#sensors .values-input[data-name="OID"][data-index="' + id + '"]').val(newId).trigger('change');
+                            socket.emit('getObject', newId, function (err, obj) {
+                                var name = getName(obj);
+                                $('#sensors .values-input[data-name="name"][data-index="' + id + '"]').val(name).trigger('change');
+                                $('#sensors .values-input[data-name="isActive"][data-index="' + id + '"]').prop("checked",true).trigger('change');
+                                $('#sensors .values-input[data-name="Zone"][data-index="' + id + '"]').val(1).trigger('change');
+                            });
+                        }
+                    });
+                });
+            });
+
+        }
+
+        function tableActorsOnReady() {
+
+            console.log('tableActorsOnReady');
+
+            $('#actors .table-values-div .table-values .values-buttons[data-command="edit"]').on('click', function () {
+                let id = $(this).data('index');
+                initSelectId(function (sid) {
+                    sid.selectId('show', $('#actors .values-input[data-name="name"][data-index="' + id + '"]').val(), function (newId) {
+                        if (newId) {
+                            $('#actors .values-input[data-name="OID"][data-index="' + id + '"]').val(newId).trigger('change');
+                            socket.emit('getObject', newId, function (err, obj) {
+                                var name = getName(obj);
+                                $('#actors .values-input[data-name="name"][data-index="' + id + '"]').val(name).trigger('change');
+                                $('#actors .values-input[data-name="isActive"][data-index="' + id + '"]').prop("checked",true).trigger('change');
+                                $('#actors .values-input[data-name="Zone"][data-index="' + id + '"]').val(1).trigger('change');
+                            });
+                        }
+                    });
+                });
+            });
+        }
+        function getName(obj) {
+
+            let name = "unknown";
+            if (obj && obj.common && obj.common.name) {
+
+                if (typeof obj.common.name === 'object') {
+                    name = obj.common.name[systemLang] || obj.common.name.en;
+                }
+                else {
+                    name = obj.common.name;
+                }
+            } else if (obj && obj.name) {
+
+                if (typeof obj.name === 'object') {
+                    name = obj.name[systemLang] || obj.name.en;
+                }
+                else {
+                    name = obj.name;
+                }
+            } else {
+                var parts = obj.id.split('.');
+                var last = parts.pop();
+                name = last[0].toUpperCase() + last.substring(1).toLowerCase();
+            }
+
+            if (name.includes(":")) {
+                var nameparts = name.split(':');
+                name = nameparts[0];
+            }
+
+            return name;
+
+        }
+
+        function getOID(obj) {
+            let OID = "unknown";
+            if (obj && obj._id) {
+                OID = obj._id;
+            }
+
+            return OID;
+
+        }
+
+        
+
+
+        var selectId;
+        function initSelectId(callback) {
+            if (selectId) {
+                return callback(selectId);
+            }
+            socket.emit('getObjects', function (err, objs) {
+                selectId = $('#dialog-select-member').selectId('init', {
+                    noMultiselect: true,
+                    objects: objs,
+                    imgPath: '../../lib/css/fancytree/',
+                    filter: { type: 'state' },
+                    name: 'scenes-select-state',
+                    texts: {
+                        select: _('Select'),
+                        cancel: _('Cancel'),
+                        all: _('All'),
+                        id: _('ID'),
+                        name: _('Name'),
+                        role: _('Role'),
+                        room: _('Room'),
+                        value: _('Value'),
+                        selectid: _('Select ID'),
+                        from: _('From'),
+                        lc: _('Last changed'),
+                        ts: _('Time stamp'),
+                        wait: _('Processing...'),
+                        ack: _('Acknowledged'),
+                        selectAll: _('Select all'),
+                        unselectAll: _('Deselect all'),
+                        invertSelection: _('Invert selection')
+                    },
+                    columns: ['image', 'name', 'role', 'room']
+                });
+                callback(selectId);
+            });
         }
     </script>
 
@@ -66,24 +247,116 @@
     <div class="m adapter-container">
 
         <div class="row">
-            <div class="col s12 m4 l2">
-                <img src="mini-alarm.png" class="logo">
+            <div class="col s12">
+                <ul class="tabs">
+                    <li class="tab col s2"><a href="#tab-main" class="translate active">Main settings</a></li>
+                    <li class="tab col s2 le-settings"><a href="#tab-sensors" class="translate">sensors</a></li>
+                    <li class="tab col s2 le-settings"><a href="#tab-actors" class="translate">actors</a></li>
+                </ul>
+            </div>
+
+            <!-- tab "main - settings"  -->
+            <div id="tab-main" class="col s12 page">
+                <div class="row">
+                    <div class="col s6 m4 l2">
+                        <img src="mini-alarm.png" class="logo">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s3">
+                        <input type="text" id="NumberOfZones" class="value" />
+                        <label for="NumberOfZones" class="translate">NumberOfZones</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s3">
+                        <input type="text" id="DelayBeforeArm" class="value" />
+                        <label for="DelayBeforeArm" class="translate">DelayBeforeArm</label>
+                    </div>
+
+                    <div class="input-field col s3">
+                        <input type="text" id="DelayBeforeAlarm" class="value" />
+                        <label for="DelayBeforeAlarm" class="translate">DelayBeforeAlarm</label>
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- tab "sensors" -->
+            <div id="tab-sensors" class="col s12 page">
+
+                <div class="row">
+                    <div class="col s6 col-use-custom-path-descr">
+                        <span class="translate">hint_what_are_sensors</span>
+                    </div>
+                </div>
+
+
+                <div class="col s12" id="sensors">
+                    <a class="btn-floating waves-effect waves-light blue table-button-add"><i class="material-icons">add</i></a>
+                    <div class="table-values-div">
+                        <table id="table_sensors" class="table-values" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th id="sensors_col_1" data-name="isActive" data-type="checkbox" style="width: 40px; background: #64b5f6" class="translate">active</th>
+                                    <th id="sensors_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
+                                    <th id="sensors_col_3" data-name="OID" style="width: 20%; background: #64b5f6 " class="translate">OID</th>
+                                    <th id="sensors_col_4" data-name="Zone" data-type="number" style="width: 20%; background: #64b5f6 " class="translate">Zone</th>
+                                    <th data-buttons="edit up down delete" style="width: 100px; background: #64b5f6"></th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- tab "actors" -->
+            <div id="tab-actors" class="col s12 page">
+
+                <div class="row">
+                    <div class="col s6 col-use-custom-path-descr">
+                        <span class="translate">hint_what_are_actors</span>
+                    </div>
+                </div>
+
+                <div class="col s12" id="actors">
+                    <a class="btn-floating waves-effect waves-light blue table-button-add"><i class="material-icons">add</i></a>
+                    <div class="table-values-div">
+                        <table id="table_actors" class="table-values" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th id="actors_col_1" data-name="isActive" data-type="checkbox" style="width: 40px; background: #64b5f6" class="translate">active</th>
+                                    <th id="actors_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
+                                    <th id="actors_col_3" data-name="OID" style="width: 20%; background: #64b5f6 " class="translate">OID</th>
+                                    <th id="actors_col_4" data-name="Zone" data-type="number" style="width: 20%; background: #64b5f6 " class="translate">Zone</th>
+                                    <th data-buttons="edit up down delete" style="width: 100px; background: #64b5f6"></th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- Put your content here -->
-
-        <!-- For example columns with settings: -->
-        <div class="row">
-            <div class="col s6 input-field">
-                <input type="checkbox" class="value" id="option1" />
-                <label for="option1" class="translate">option1</label>
+        <div class="m material-dialogs">
+            <div id="dialog-select-member" class="modal modal-fixed-footer">
+                <div class="modal-content">
+                    <div class="row">
+                        <div class="col s12 title"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col s12 dialog-content">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a class="modal-action modal-close waves-effect waves-green btn btn-set"><i class="large material-icons left">check</i><span class="translate">Select</span></a>
+                    <a class="modal-action modal-close waves-effect waves-green btn btn-close"><i class="large material-icons left ">close</i><span class="translate">Cancel</span></a>
+                </div>
             </div>
-
-            <div class="col s6 input-field">
-                <input type="text" class="value" id="option2" />
-                <label for="option2" class="translate">option2</label>
-            </div>
+            
         </div>
 
     </div>

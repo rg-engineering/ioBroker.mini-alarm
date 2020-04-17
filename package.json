@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "very simple alarm system",
   "author": {
-    "name": "rg-engineering",
+    "name": "René G.",
     "email": "info@rg-engineering.eu"
   },
   "contributors": [
@@ -21,8 +21,8 @@
     "url": "https://github.com/rg-engineering/ioBroker.mini-alarm"
   },
   "dependencies": {
-    "@iobroker/adapter-core": "^2.2.1",
-    "better-sqlite3": "6.0.1"
+    "@iobroker/adapter-core": "^2.2.1"
+
   },
   "devDependencies": {
     "@iobroker/testing": "^2.0.1",
