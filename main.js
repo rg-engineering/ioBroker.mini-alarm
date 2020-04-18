@@ -17,9 +17,13 @@
 const utils = require("@iobroker/adapter-core");
 
 let adapter;
+let AlarmState = "undefined";
+let ArmedZone = 0;
 
 /** @type {number | null } */
 let ArmTimer = null;
+/** @type {number | null} */
+let AlarmTimer = null;
 
 function startAdapter(options) {
     options = options || {};
@@ -130,7 +134,9 @@ async function CreateDatepoints() {
             native: { id: "State" }
         });
 
-        await adapter.setStateAsync("State", { ack: true, val: "disarmed" });
+        AlarmState = "disarmed";
+        ArmedZone = 0;
+        await adapter.setStateAsync("State", { ack: true, val: AlarmState });
 
         await adapter.setObjectNotExistsAsync("ArmAll", {
             type: "state",
@@ -258,7 +264,9 @@ async function HandleStateChange(id, state) {
                 await Arm(zone);
                 bHandled = true;
             }
-
+            else {
+                bHandled = await CheckForAlarm(id, state);
+            }
 
             if (!bHandled) {
                 adapter.log.debug("### not handled " + id + " " + JSON.stringify(state));
@@ -280,12 +288,82 @@ async function HandleStateChange(id, state) {
 async function Disarm() {
 
     adapter.log.info("all zones disarmed ");
-
-    await adapter.setStateAsync("State", { ack: true, val: "disarmed" });
-
+    AlarmState = "disarmed";
+    ArmedZone = 0;
+    await adapter.setStateAsync("State", { ack: true, val: AlarmState });
+    OffAllAlarmDevices();
     UnsubscribeSensors();
 }
 
+
+async function CheckForAlarm(id, state) {
+
+    let bRet = false;
+
+    if (AlarmState === "armed" && state.val === true) {
+
+        adapter.log.debug("check for alarm ");
+
+        //find device and zone
+        const sensors = adapter.config.sensors.filter(d => d.OID === id);
+
+        for (let i = 0; i < sensors.length; i++) {
+            bRet = true; //statechange handled
+            if (ArmedZone === - 1 || sensors[i].Zone === ArmedZone) {
+                await PrepareForAlarm();
+            }
+        }
+    }
+    return bRet;
+
+}
+
+async function PrepareForAlarm() {
+    if (adapter.config.DelayBeforeAlarm > 0) {
+
+        if (AlarmTimer === null) {
+
+            AlarmState = "pre-alarm";
+            await adapter.setStateAsync("State", { ack: true, val: AlarmState });
+
+            AlarmTimer = setTimeout(Alarm, adapter.config.DelayBeforeAlarm * 1000);
+        }
+    }
+    else {
+        await Alarm();
+    }
+}
+
+async function Alarm() {
+    adapter.log.debug("Alarm on Zone " + ArmedZone);
+
+    AlarmState = "alarm";
+    await adapter.setStateAsync("State", { ack: true, val: AlarmState });
+
+    if (ArmedZone === -1) {
+        for (let i = 0; i < adapter.config.actors.length; i++) {
+            await adapter.setForeignStateAsync(adapter.config.actors[i].OID, { ack: true, val: true });
+            adapter.log.debug("alarm on " + adapter.config.actors[i].Name);
+        }
+    }
+    else {
+        const actors = adapter.config.actors.filter(d => parseInt(d.Zone) === ArmedZone);
+
+        for (let i = 0; i < actors.length; i++) {
+            await adapter.setForeignStateAsync(actors[i].OID, { ack: true, val: true });
+            adapter.log.debug("alarm on " + actors[i].Name);
+        }
+    }
+
+}
+
+async function OffAllAlarmDevices() {
+    for (let i = 0; i < adapter.config.actors.length; i++) {
+        await adapter.setForeignStateAsync(adapter.config.actors[i].OID, { ack: true, val: false });
+        adapter.log.debug("switch off " + adapter.config.actors[i].Name);
+    }
+
+}
 
 function UnsubscribeSensors() {
 
@@ -295,7 +373,7 @@ function UnsubscribeSensors() {
     }
 
     for (let i = 0; i < adapter.config.sensors.length; i++) {
-        adapter.subscribeStates(adapter.config.sensors[i].OID);
+        adapter.unsubscribeForeignStates(adapter.config.sensors[i].OID);
         adapter.log.debug("unsubscribe " + JSON.stringify(adapter.config.sensors[i]));
     }
 
@@ -307,7 +385,9 @@ function UnsubscribeSensors() {
 async function Arm(zone) {
 
     if (adapter.config.DelayBeforeArm > 0) {
-        await adapter.setStateAsync("State", { ack: true, val: "arming" });
+
+        AlarmState = "arming";
+        await adapter.setStateAsync("State", { ack: true, val: AlarmState });
         ArmTimer = setTimeout(Arm2, adapter.config.DelayBeforeArm*1000,zone);
 
     }
@@ -325,15 +405,15 @@ async function Arm2(zone) {
 
     if (zone < 0) {
         adapter.log.info("arm all zones ");
-        await adapter.setStateAsync("State", { ack: true, val: "armed" });
         SubscribeSensors(-1);
     }
     else {
         adapter.log.info("arm zone " + zone);
         SubscribeSensors(zone);
     }
-
-    await adapter.setStateAsync("State", { ack: true, val: "armed" });
+    ArmedZone = zone;
+    AlarmState = "armed";
+    await adapter.setStateAsync("State", { ack: true, val: AlarmState });
 }
 
 
@@ -345,7 +425,7 @@ function SubscribeSensors(zone) {
     if (zone < 0) {
         for (let i = 0; i < adapter.config.sensors.length; i++) {
             adapter.log.debug("subscribe " + JSON.stringify(adapter.config.sensors[i]));
-            adapter.subscribeStates(adapter.config.sensors[i].OID);
+            adapter.subscribeForeignStates(adapter.config.sensors[i].OID);
         }
     }
     else {
@@ -353,7 +433,7 @@ function SubscribeSensors(zone) {
         
         for (let i = 0; i < sensors.length; i++) {
             adapter.log.debug("subscribe " + JSON.stringify(sensors[i]));
-            adapter.subscribeStates(sensors[i].OID);
+            adapter.subscribeForeignStates(sensors[i].OID);
         }
 
     }
