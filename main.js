@@ -318,7 +318,78 @@ async function CheckForAlarm(id, state) {
 
 }
 
+/**
+ * @param {number} zone
+ */
+async function CheckAllClosed(zone) {
+    let bRet = true;
+
+    let sStatus = "";
+    try {
+        if (zone == -1) {
+            for (let i = 0; i < adapter.config.sensors.length; i++) {
+                const temp = await adapter.getForeignStateAsync(adapter.config.sensors[i].OID);
+
+                if (temp == null) {
+                    adapter.log.error(adapter.config.sensors[i].OID + " not found " + JSON.stringify(temp));
+                }
+
+                if (temp != null && temp.val) {
+                    bRet = false;
+                    adapter.log.info(adapter.config.sensors[i].name + " not closed " + JSON.stringify(temp));
+
+                    if (sStatus.length == 0) {
+                        sStatus = "not armed, still open:";
+                    }
+                    sStatus += " " + adapter.config.sensors[i].name;
+
+                }
+            }
+        }
+        else {
+
+
+            const sensors = adapter.config.sensors.filter(d => parseInt(d.Zone) === zone);
+
+            for (let i = 0; i < sensors.length; i++) {
+                const temp = await adapter.getForeignStateAsync(sensors[i].OID);
+
+
+                if (temp == null) {
+                    adapter.log.error(sensors[i].OID + " not found " + JSON.stringify(temp));
+                }
+                if (temp != null && temp.val) {
+                    bRet = false;
+                    adapter.log.info(sensors[i].name + " not closed " + JSON.stringify(temp));
+
+                    if (sStatus.length == 0) {
+                        sStatus = "not armed, still open:";
+                    }
+                    sStatus += " " + adapter.config.sensors[i].name;
+                }
+            }
+
+        }
+    }
+    catch (e) {
+        adapter.log.error("exception in CheckAllClosed [" + e + "]");
+    }
+
+    if (sStatus.length > 0) {
+
+        AlarmState = "arm not possible";
+        await adapter.setStateAsync("State", { ack: true, val: sStatus });
+    }
+
+    return bRet;
+}
+
+
 async function PrepareForAlarm() {
+
+
+
+
     if (adapter.config.DelayBeforeAlarm > 0) {
 
         if (AlarmTimer === null) {
@@ -332,6 +403,7 @@ async function PrepareForAlarm() {
     else {
         await Alarm();
     }
+
 }
 
 async function Alarm() {
@@ -384,15 +456,20 @@ function UnsubscribeSensors() {
  */
 async function Arm(zone) {
 
-    if (adapter.config.DelayBeforeArm > 0) {
 
-        AlarmState = "arming";
-        await adapter.setStateAsync("State", { ack: true, val: AlarmState });
-        ArmTimer = setTimeout(Arm2, adapter.config.DelayBeforeArm*1000,zone);
+    const allClosed = await CheckAllClosed(zone);
+    if (allClosed) {
 
-    }
-    else {
-        await Arm2(zone);
+        if (adapter.config.DelayBeforeArm > 0) {
+
+            AlarmState = "arming";
+            await adapter.setStateAsync("State", { ack: true, val: AlarmState });
+            ArmTimer = setTimeout(Arm2, adapter.config.DelayBeforeArm * 1000, zone);
+
+        }
+        else {
+            await Arm2(zone);
+        }
     }
 }
 
