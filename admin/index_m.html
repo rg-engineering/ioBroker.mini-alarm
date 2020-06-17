@@ -75,8 +75,26 @@
             // reinitialize all the Materialize labels on the page if you are dynamically adding inputs:
             if (M) M.updateTextFields();
 
+            values2table('buttons', settings.buttons, OnChange, tableButtonsOnReady);
             values2table('sensors', settings.sensors, OnChange, tableSensorsOnReady);
             values2table('actors', settings.actors, OnChange, tableActorsOnReady);
+            values2table('urls', settings.URLs, OnChange, tableURLsOnReady);
+            values2table('messages', settings.Messages, OnChange, tableMessagesOnReady);
+
+            /*
+            // sendTo Chips
+            $('#add_sendTo').on('click', () => {
+                initSelectId((sid) => {
+                    sid.selectId('show', (newId) => {
+                        if (newId) {
+                            $('.sendTo_Chips').chips('addChip', { tag: newId });
+                            onChange();
+                        }
+                    });
+                });
+            });
+            list2chips('.sendTo_Chips', settings.sendTo || '', onChange);
+            */
 
         }
 
@@ -93,8 +111,15 @@
                 }
             });
 
+            obj.buttons = table2values('buttons');
             obj.sensors = table2values('sensors');
             obj.actors = table2values('actors');
+            obj.URLs = table2values('urls');
+            obj.Messages = table2values('messages');
+
+
+            //obj.sendTo = chips2list('.sendTo_Chips');
+
 
             callback(obj);
         }
@@ -108,6 +133,29 @@
             if (myOnChange != null) {
                 myOnChange();
             }
+        }
+
+        function tableButtonsOnReady() {
+
+            console.log('tableButtonsOnReady');
+
+            $('#buttons .table-values-div .table-values .values-buttons[data-command="edit"]').on('click', function () {
+                let id = $(this).data('index');
+                initSelectId(function (sid) {
+                    sid.selectId('show', $('#buttons .values-input[data-name="name"][data-index="' + id + '"]').val(), function (newId) {
+                        if (newId) {
+                            $('#buttons .values-input[data-name="OID"][data-index="' + id + '"]').val(newId).trigger('change');
+                            socket.emit('getObject', newId, function (err, obj) {
+                                var name = getName(obj);
+                                $('#buttons .values-input[data-name="name"][data-index="' + id + '"]').val(name).trigger('change');
+                                $('#buttons .values-input[data-name="isActive"][data-index="' + id + '"]').prop("checked", true).trigger('change');
+                                $('#buttons .values-input[data-name="Zone"][data-index="' + id + '"]').val(1).trigger('change');
+                            });
+                        }
+                    });
+                });
+            });
+
         }
 
 
@@ -155,6 +203,40 @@
                 });
             });
         }
+
+        function tableURLsOnReady() {
+
+            console.log('tableURLsOnReady');
+
+            
+        }
+
+        function tableMessagesOnReady() {
+
+            console.log('tableMessagesOnReady');
+
+            $('#messages .table-values-div .table-values .values-buttons[data-command="edit"]').on('click', function () {
+                let id = $(this).data('index');
+                initSelectId(function (sid) {
+                    sid.selectId('show', $('#actors .values-input[data-name="name"][data-index="' + id + '"]').val(), function (newId) {
+                        if (newId) {
+                            $('#actors .values-input[data-name="OID"][data-index="' + id + '"]').val(newId).trigger('change');
+                            socket.emit('getObject', newId, function (err, obj) {
+                                var name = getName(obj);
+                                $('#messages .values-input[data-name="name"][data-index="' + id + '"]').val("new message").trigger('change');
+                                $('#messages .values-input[data-name="instance"][data-index="' + id + '"]').val(name).trigger('change');
+                                $('#messages .values-input[data-name="textArm"][data-index="' + id + '"]').val("scharf geschaltet").trigger('change');
+                                $('#messages .values-input[data-name="textPrealarm"][data-index="' + id + '"]').val("Vor-Alarm ausgelöst").trigger('change');
+                                $('#messages .values-input[data-name="textAlarm"][data-index="' + id + '"]').val("Alarm ausgelöst").trigger('change');
+                                $('#messages .values-input[data-name="textDisarm"][data-index="' + id + '"]').val("unscharf geschaltet").trigger('change');
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+
         function getName(obj) {
 
             let name = "unknown";
@@ -199,8 +281,33 @@
 
         }
 
-        
 
+        /*
+        function list2chips(selector, list, onChange) {
+            const chips = list.split(/[,;\s]+/);
+            const data = [];
+            for (let c = 0; c < chips.length; c++) {
+                if (chips[c] && chips[c].trim()) {
+                    data.push({ tag: chips[c].trim() });
+                }
+            }
+            $(selector).chips({
+                data: data,
+                //placeholder: _('Send Instanz'),
+                //secondaryPlaceholder: _('Add Instanz'),
+                onChipAdd: onChange,
+                onChipDelete: onChange
+            });
+        }
+        function chips2list(selector) {
+            const data = $(selector).chips('getData');
+            const text = [];
+            for (let lib = 0; lib < data.length; lib++) {
+                text.push(data[lib].tag);
+            }
+            return text.join(' ');
+        }
+        */
 
         var selectId;
         function initSelectId(callback) {
@@ -250,8 +357,11 @@
             <div class="col s12">
                 <ul class="tabs">
                     <li class="tab col s2"><a href="#tab-main" class="translate active">Main settings</a></li>
+                    <li class="tab col s2 le-settings"><a href="#tab-buttons" class="translate">buttons</a></li>
                     <li class="tab col s2 le-settings"><a href="#tab-sensors" class="translate">sensors</a></li>
                     <li class="tab col s2 le-settings"><a href="#tab-actors" class="translate">actors</a></li>
+                    <li class="tab col s2 le-settings"><a href="#tab-url" class="translate">URL</a></li>
+                    <li class="tab col s2 le-settings"><a href="#tab-messages" class="translate">messages</a></li>
                 </ul>
             </div>
 
@@ -282,8 +392,48 @@
                     </div>
                 </div>
 
+                <div class="row">
+                    <div class="input-field col s3">
+                        <input type="text" id="BeepDuration" class="value" />
+                        <label for="BeepDuration" class="translate">BeepDuration</label>
+                    </div>
+
+                    <div class="input-field col s3">
+                        <input type="text" id="AlarmDuration" class="value" />
+                        <label for="AlarmDuration" class="translate">AlarmDuration</label>
+                    </div>
+                </div>
+
             </div>
 
+            <!-- tab "buttons" -->
+            <div id="tab-buttons" class="col s12 page">
+
+                <div class="row">
+                    <div class="col s6 col-use-custom-path-descr">
+                        <span class="translate">hint_what_are_buttons</span>
+                    </div>
+                </div>
+
+
+                <div class="col s12" id="buttons">
+                    <a class="btn-floating waves-effect waves-light blue table-button-add"><i class="material-icons">add</i></a>
+                    <div class="table-values-div">
+                        <table id="table_buttons" class="table-values" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th id="sensors_col_1" data-name="isActive" data-type="checkbox" style="width: 20px; background: #64b5f6" class="translate">active</th>
+                                    <th id="sensors_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
+                                    <th id="sensors_col_3" data-name="OID" style="width: 20%; background: #64b5f6 " class="translate">OID</th>
+                                    <th id="sensors_col_4" data-name="Zone" data-type="number" style="width: 10%; background: #64b5f6 " class="translate">Zone</th>
+                                    <th id="sensors_col_5" data-name="type" data-type="select" data-options="arm;disarm" style="width: 10%; background: #64b5f6 " class="translate">type</th>
+                                    <th data-buttons="edit up down delete" style="width: 100px; background: #64b5f6"></th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
             <!-- tab "sensors" -->
             <div id="tab-sensors" class="col s12 page">
@@ -301,10 +451,11 @@
                         <table id="table_sensors" class="table-values" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th id="sensors_col_1" data-name="isActive" data-type="checkbox" style="width: 40px; background: #64b5f6" class="translate">active</th>
+                                    <th id="sensors_col_1" data-name="isActive" data-type="checkbox" style="width: 20px; background: #64b5f6" class="translate">active</th>
                                     <th id="sensors_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
                                     <th id="sensors_col_3" data-name="OID" style="width: 20%; background: #64b5f6 " class="translate">OID</th>
-                                    <th id="sensors_col_4" data-name="Zone" data-type="number" style="width: 20%; background: #64b5f6 " class="translate">Zone</th>
+                                    <th id="sensors_col_4" data-name="Zone" data-type="number" style="width: 10%; background: #64b5f6 " class="translate">Zone</th>
+                                    <th id="sensors_col_5" data-name="LevelClosed" data-type="select" data-options="true;false" style="width: 10%; background: #64b5f6 " class="translate">LevelClosed</th>
                                     <th data-buttons="edit up down delete" style="width: 100px; background: #64b5f6"></th>
                                 </tr>
                             </thead>
@@ -328,16 +479,103 @@
                         <table id="table_actors" class="table-values" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th id="actors_col_1" data-name="isActive" data-type="checkbox" style="width: 40px; background: #64b5f6" class="translate">active</th>
+                                    <th id="actors_col_1" data-name="isActive" data-type="checkbox" style="width: 20px; background: #64b5f6" class="translate">active</th>
                                     <th id="actors_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
                                     <th id="actors_col_3" data-name="OID" style="width: 20%; background: #64b5f6 " class="translate">OID</th>
-                                    <th id="actors_col_4" data-name="Zone" data-type="number" style="width: 20%; background: #64b5f6 " class="translate">Zone</th>
+                                    <th id="actors_col_4" data-name="Zone" data-type="number" style="width: 10%; background: #64b5f6 " class="translate">Zone</th>
+
+                                    <th id="actors_col_5" data-name="isBeep" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">isBeep</th>
+
+
+                                    <th id="actors_col_6" data-name="useArm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">useArm</th>
+                                    <th id="actors_col_7" data-name="usePrealarm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">usePrealarm</th>
+                                    <th id="actors_col_8" data-name="useAlarm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">useAlarm</th>
+                                    <th id="actors_col_9" data-name="useDisarm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">useDisarm</th>
+
                                     <th data-buttons="edit up down delete" style="width: 100px; background: #64b5f6"></th>
                                 </tr>
                             </thead>
                         </table>
                     </div>
                 </div>
+            </div>
+
+            <!-- tab "URL" -->
+            <div id="tab-url" class="col s12 page">
+
+                <div class="row">
+                    <div class="col s6 col-use-custom-path-descr">
+                        <span class="translate">hint_what_are_url</span>
+                    </div>
+                </div>
+
+                <div class="col s12" id="urls">
+                    <a class="btn-floating waves-effect waves-light blue table-button-add"><i class="material-icons">add</i></a>
+                    <div class="table-values-div">
+                        <table id="table_urls" class="table-values" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th id="urls_col_1" data-name="isActive" data-type="checkbox" style="width: 20px; background: #64b5f6" class="translate">active</th>
+                                    <th id="urls_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
+                                    <th id="urls_col_3" data-name="url" style="width: 60%; background: #64b5f6 " class="translate">URL</th>
+
+                                    <th id="urls_col_5" data-name="useArm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">useArm</th>
+                                    <th id="urls_col_6" data-name="usePrealarm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">usePrealarm</th>
+                                    <th id="urls_col_7" data-name="useAlarm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">useAlarm</th>
+                                    <th id="urls_col_8" data-name="useDisarm" data-type="checkbox" style="width: 20px; background: #64b5f6 " class="translate">useDisarm</th>
+
+                                    <th data-buttons="up down delete" style="width: 100px; background: #64b5f6"></th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- tab "messages" -->
+            <div id="tab-messages" class="col s12 page">
+
+                <div class="row">
+                    <div class="col s6 col-use-custom-path-descr">
+                        <span class="translate">hint_what_are_messages</span>
+                    </div>
+                </div>
+
+                <!--
+    <div class="row">
+        <div class="col s2">
+            <a id="add_sendTo" class="btn-floating btn-large waves-effect waves-light blue"><i class="material-icons">add</i></a>
+        </div>
+        <div class="col s10">
+            <label class="translate">sendTo_Chips</label>
+            <div class="chips sendTo_Chips"></div>
+        </div>
+    </div>
+        -->
+                <div class="col s12" id="messages">
+                    <a class="btn-floating waves-effect waves-light blue table-button-add"><i class="material-icons">add</i></a>
+                    <div class="table-values-div">
+                        <table id="table_messages" class="table-values" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th id="messages_col_1" data-name="isActive" data-type="checkbox" style="width: 20px; background: #64b5f6" class="translate">active</th>
+                                    <th id="messages_col_2" data-name="name" style="width: 20%; background: #64b5f6 " class="translate">Name</th>
+                                    <th id="messages_col_3" data-name="instance" style="background: #64b5f6 " class="translate">instance</th>
+
+                                    <th id="messages_col_5" data-name="textArm" style=" background: #64b5f6 " class="translate">textArm</th>
+                                    <th id="messages_col_6" data-name="textPrealarm" style="background: #64b5f6 " class="translate">textPrealarm</th>
+                                    <th id="messages_col_7" data-name="textAlarm" style=" background: #64b5f6 " class="translate">textAlarm</th>
+                                    <th id="messages_col_8" data-name="textDisarm" style=" background: #64b5f6 " class="translate">textDisarm</th>
+
+                                    <th data-buttons="edit up down delete" style="width: 100px; background: #64b5f6"></th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+
+
+
             </div>
         </div>
         <div class="m material-dialogs">
@@ -356,7 +594,7 @@
                     <a class="modal-action modal-close waves-effect waves-green btn btn-close"><i class="large material-icons left ">close</i><span class="translate">Cancel</span></a>
                 </div>
             </div>
-            
+
         </div>
 
     </div>

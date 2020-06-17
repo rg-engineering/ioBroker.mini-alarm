@@ -72,11 +72,16 @@
     ]
   },
   "native": {
+    "buttons": [],
     "sensors": [],
     "actors": [],
+    "URLs": [],
     "NumberOfZones": 2,
     "DelayBeforeArm": 0,
-    "DelayBeforeAlarm": 5
+    "DelayBeforeAlarm": 5,
+    "BeepDuration": 1,
+    "AlarmDuration": 180
+   
 
   },
   "objects": [],

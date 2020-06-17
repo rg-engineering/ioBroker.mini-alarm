@@ -205,7 +205,10 @@ function SubscribeStates(callback) {
             adapter.subscribeStates("ArmZone"+i);
         }
 
-
+        //subscribe buttons
+        for (let i = 0; i < adapter.config.buttons; i++) {
+            adapter.subscribeStates(adapter.config.buttons[i].OID);
+        }
 
         adapter.log.debug("#subscribtion finished");
     }
@@ -241,14 +244,11 @@ async function HandleStateChange(id, state) {
 
             adapter.log.debug("### " + id + " " + LastStateChangeID + " " + state.val + " " + LastStateVal);
 
-
             let bHandled = false;
             LastStateChangeID = id;
             LastStateVal = state.val;
 
-
             const ids = id.split("."); 
-
 
             if (ids[2] === "Disarm") {
                 await Disarm();
@@ -264,7 +264,11 @@ async function HandleStateChange(id, state) {
                 await Arm(zone);
                 bHandled = true;
             }
-            else {
+
+            if (!bHandled) {
+                bHandled = await CheckForArmByButton(id, state);
+            }
+            if (!bHandled) {
                 bHandled = await CheckForAlarm(id, state);
             }
 
@@ -295,12 +299,33 @@ async function Disarm() {
     UnsubscribeSensors();
 }
 
+async function CheckForArmByButton(id, state) {
+    let bRet = false;
+
+    for (let i = 0; i < adapter.config.buttons; i++) {
+        if (id == adapter.config.buttons[i].OID) {
+            adapter.log.info("button " + adapter.config.buttons[i].name + " pressed");
+
+            if (adapter.config.buttons[i].type == "arm") {
+                await Arm(adapter.config.buttons[i].Zone);
+            }
+            else if (adapter.config.buttons[i].type == "disarm") {
+                await Disarm(adapter.config.buttons[i].Zone);
+            } 
+
+            bRet = true;
+        }
+    }
+
+    return bRet;
+}
+
 
 async function CheckForAlarm(id, state) {
 
     let bRet = false;
 
-    if (AlarmState === "armed" && state.val === true) {
+    if (AlarmState === "armed" ) {
 
         adapter.log.debug("check for alarm ");
 
@@ -310,7 +335,12 @@ async function CheckForAlarm(id, state) {
         for (let i = 0; i < sensors.length; i++) {
             bRet = true; //statechange handled
             if (ArmedZone === - 1 || sensors[i].Zone === ArmedZone) {
-                await PrepareForAlarm();
+
+                const levelClosed = sensors[i].LevelClosed;
+
+                if (state.val != levelClosed) {
+                    await PrepareForAlarm();
+                }
             }
         }
     }
@@ -330,11 +360,13 @@ async function CheckAllClosed(zone) {
             for (let i = 0; i < adapter.config.sensors.length; i++) {
                 const temp = await adapter.getForeignStateAsync(adapter.config.sensors[i].OID);
 
+                const levelClosed = adapter.config.sensors[i].LevelClosed;
+
                 if (temp == null) {
                     adapter.log.error(adapter.config.sensors[i].OID + " not found " + JSON.stringify(temp));
                 }
 
-                if (temp != null && temp.val) {
+                if (temp != null && temp.val != levelClosed) {
                     bRet = false;
                     adapter.log.info(adapter.config.sensors[i].name + " not closed " + JSON.stringify(temp));
 
@@ -354,11 +386,12 @@ async function CheckAllClosed(zone) {
             for (let i = 0; i < sensors.length; i++) {
                 const temp = await adapter.getForeignStateAsync(sensors[i].OID);
 
+                const levelClosed = adapter.config.sensors[i].LevelClosed;
 
                 if (temp == null) {
                     adapter.log.error(sensors[i].OID + " not found " + JSON.stringify(temp));
                 }
-                if (temp != null && temp.val) {
+                if (temp != null && temp.val != levelClosed) {
                     bRet = false;
                     adapter.log.info(sensors[i].name + " not closed " + JSON.stringify(temp));
 
@@ -387,9 +420,6 @@ async function CheckAllClosed(zone) {
 
 async function PrepareForAlarm() {
 
-
-
-
     if (adapter.config.DelayBeforeAlarm > 0) {
 
         if (AlarmTimer === null) {
@@ -412,6 +442,17 @@ async function Alarm() {
     AlarmState = "alarm";
     await adapter.setStateAsync("State", { ack: true, val: AlarmState });
 
+    await HandleAlarmDevices();
+    
+}
+
+
+async function HandleAlarmDevices() {
+
+    BeepTimer
+    AlarmTimer
+
+
     if (ArmedZone === -1) {
         for (let i = 0; i < adapter.config.actors.length; i++) {
             await adapter.setForeignStateAsync(adapter.config.actors[i].OID, { ack: true, val: true });
@@ -426,8 +467,21 @@ async function Alarm() {
             adapter.log.debug("alarm on " + actors[i].Name);
         }
     }
+}
+
+async function OffAllBeepAlarmDevices() {
+
+
+
+    for (let i = 0; i < adapter.config.actors.length; i++) {
+        await adapter.setForeignStateAsync(adapter.config.actors[i].OID, { ack: true, val: false });
+        adapter.log.debug("switch off " + adapter.config.actors[i].Name);
+    }
 
 }
+
+
+
 
 async function OffAllAlarmDevices() {
     for (let i = 0; i < adapter.config.actors.length; i++) {
